@@ -20,47 +20,57 @@ where:
 
 '''
 
-ticker = str(sys.argv[1]) # Get stock ticker from command line argument
+def scrapePage(ticker):
+	current_time = datetime.now().strftime("%H-%M-%S") # Current time will be name of log file
+	pathTo = 'FinVis/'+ticker # Folder log file is stored in
+	fileName = current_time+'.csv' # Log file name
+	fullPath = pathTo +'/'+ fileName
 
-current_time = datetime.now().strftime("%H-%M-%S") # Current time will be name of log file
+	if not os.path.exists('pathTo'):
+		try:
+			os.makedirs(pathTo)
+		except FileExistsError:
+			pass
 
-pathTo = 'FinVis/'+ticker # Folder log file is stored in
-fileName = current_time+'.csv' # Log file instance
+	csv_out = open(fullPath, 'w')
+	csv_writer = csv.writer(csv_out)
+	csv_writer.writerow(['date', 'time', 'headline'])
 
-if not os.path.exists('pathTo'):
-    os.makedirs(pathTo)
+	# html_out = open('html_out.html', 'w') # For debugging
+	# html_in = open('html_out.html', 'r') # For debugging
+	# response = html_in # For debugging
 
-csv_out = open(pathTo +'/'+ fileName, 'w')
-csv_writer = csv.writer(csv_out)
-csv_writer.writerow(['date', 'time', 'headline'])
+	# Get webpage raw html and convert to string
+	print('Requesting page for ticker: ' + ticker)
+	req = Request(url='https://finviz.com/quote.ashx?t='+ticker, headers={'user-agent': 'app/0.0.1'})
+	response = urlopen(req)  
+	html = BeautifulSoup(response, 'lxml') # Html string
 
-# html_out = open('html_out.html', 'w') # For debugging
-# html_in = open('html_out.html', 'r') # For debugging
-# response = html_in # For debugging
+	# print('writing out html...') # For debugging
+	# html_out.write(str(html)) # For debugging
 
-# Get webpage raw html and convert to string
-print('Requesting page for ticker: ' + ticker)
-req = Request(url='https://finviz.com/quote.ashx?t='+ticker, headers={'user-agent': 'app/0.0.1'})
-response = urlopen(req)  
-html = BeautifulSoup(response, 'lxml') # Html string
+	# BS instance 
+	soup = BeautifulSoup(str(html), 'lxml')
+	tables = soup.find_all('table')
 
-# print('writing out html...') # For debugging
-# html_out.write(str(html)) # For debugging
+	# tables[32] is the element which holds a list of the other html elements that
+	# contain times and headlines, extract and write out here
+	dateHolder = ''
+	for tableRow in tables[32].find_all('tr'):
 
-# BS instance 
-soup = BeautifulSoup(str(html), 'lxml')
-tables = soup.find_all('table')
+		time = tableRow.find_all('td')[0].text
+		if len(time.split(' ')) > 1:
+			dateHolder = time.split(' ')[0]
+			time = time.split(' ')[1]
 
-# tables[32] is the element which holds a list of the other html elements that
-# contain times and headlines, extract and write out here
-dateHolder = ''
-for tableRow in tables[32].find_all('tr'):
+		headline = tableRow.find_all('td')[1].find('a').text
 
-	time = tableRow.find_all('td')[0].text
-	if len(time.split(' ')) > 1:
-		dateHolder = time.split(' ')[0]
-		time = time.split(' ')[1]
+		csv_writer.writerow([dateHolder, time, headline])
 
-	headline = tableRow.find_all('td')[1].find('a').text
+	return(fullPath)
 
-	csv_writer.writerow([dateHolder, time, headline])
+if __name__ == '__main__':
+	TICKER = str(sys.argv[1]) # Get stock ticker from command line argument
+	scrapePage(TICKER)
+
+
